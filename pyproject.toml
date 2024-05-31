@@ -1,0 +1,76 @@
+[project]
+name = "frog"
+version = "0.1.0"
+description = "Data Challenge Télécom Paris"
+authors = [
+    {name = "Aleksander Gautier", email = "aleksander.gautier@telecom-paris.fr"},
+    {name = "Paul Poyer", email = "paul.poyer@telecom-paris.fr"},
+    {name = "Anatole Reffet", email = "anatole.reffet@telecom-paris.fr"}
+           ]
+requires-python = ">= 3.9"
+dependencies = []
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.pixi.project]
+channels = ["conda-forge"]
+platforms = ["osx-arm64"]
+
+[tool.pixi.pypi-dependencies]
+frog = { path = ".", editable = true }
+
+[tool.pixi.tasks]
+
+[tool.pixi.dependencies]
+ruff = ">=0.4.6,<0.5"
+pandas = ">=2.2.2,<2.3"
+numpy = ">=1.26.4,<1.27"
+pillow = ">=10.3.0,<10.4"
+tqdm = ">=4.66.4,<4.67"
+matplotlib = ">=3.8.4,<3.9"
+pytorch = ">=2.3.0,<2.4"
+torchvision = ">=0.18.0,<0.19"
+
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    # pyflakes
+    "F",
+    # pycodestyle
+    "E", "W",
+    # flake8-builtins
+    "A",
+    # flake8-bugbear
+    "B",
+    # flake8-comprehensions
+    "C4",
+    # flake8-simplify
+    "SIM",
+    # flake8-unused-arguments
+    "ARG",
+    # pylint
+    "PL",
+    # tidy
+    "TID",
+    # isort
+    "I",
+    # pep8-naming
+    "N",
+    # pyupgrade
+    "UP"
+]
+ignore = [
+    # may cause conflicts with ruff formatter
+    "E501",
+    "W191"
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

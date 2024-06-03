@@ -39,3 +39,30 @@ class Dataset(torch.utils.data.Dataset):
         y = np.float32(y)
 
         return X, y, gender, filename
+    
+
+class Dataset_test(torch.utils.data.Dataset):
+    "Characterizes a dataset for PyTorch"
+
+    def __init__(self, df, image_dir):
+        "Initialization"
+        self.image_dir = image_dir
+        self.df = df
+        self.transform = transforms.ToTensor()
+
+    def __len__(self):
+        "Denotes the total number of samples"
+        return len(self.df)
+
+    def __getitem__(self, index):
+        "Generates one sample of data"
+        # Select sample
+        row = self.df.loc[index]
+        filename = row["filename"]
+
+        # Load data and get label
+        img = Image.open(f"{self.image_dir}/{filename}")
+
+        X = self.transform(img)
+
+        return X, filename

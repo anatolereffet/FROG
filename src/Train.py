@@ -1,52 +1,32 @@
 import pandas as pd
 import torch
-import torch.nn as nn
-from PIL import Image
+from torch.nn import MSELoss
 from tqdm import tqdm
 from utils.dataset import Dataset
-from utils.Evaluation import error_fn, metric_fn
-
-def main(df_train, df_test, image_dir, df_val, model, device):
-    #check that all is read OK
-    print("Check reading dataset...")
-    for idx, row in tqdm(df_train.iterrows(), total=len(df_train)):
-        try:
-            filename = df_train.loc[idx, "filename"]
-            img2display = Image.open(f"{image_dir}/{filename}")
-        except ValueError as e:
-            print(idx, e)
-
-    for idx, row in tqdm(df_test.iterrows(), total=len(df_test)):
-        try:
-            filename = df_test.loc[idx, "filename"]
-            img2display = Image.open(f"{image_dir}/{filename}")
-        except ValueError as e:
-            print(idx, e)
+from src.utils.metrics import metric_fn
 
 
-    #Make dataset and Dataloader
-    training_set = Dataset(df_train, image_dir)
-    validation_set = Dataset(df_val, image_dir)
+def train(train_set, val_set, image_dir, model, device):
+    train_set = Dataset(train_set, image_dir)
+    val_set = Dataset(val_set, image_dir)
 
     params_train = {"batch_size": 1, "shuffle": True, "num_workers": 0}
 
     params_val = {"batch_size": 1, "shuffle": False, "num_workers": 0}
-    
-    training_generator = torch.utils.data.DataLoader(training_set, **params_train)
-    validation_generator = torch.utils.data.DataLoader(validation_set, **params_val)
 
+    training_generator = torch.utils.data.DataLoader(train_set, **params_train)
+    validation_generator = torch.utils.data.DataLoader(val_set, **params_val)
 
     ###################   MODEL   #################
     if torch.cuda.is_available():
         print("\nCuda available")
         model.cuda()
 
-    #Loss
-    
-    loss_fn = nn.MSELoss()
-    #Optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    # Loss
+    loss_fn = MSELoss()
 
+    # Optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
     # Train
     print("\nTraining model ...")
@@ -78,8 +58,7 @@ def main(df_train, df_test, image_dir, df_val, model, device):
             loss.backward()
             optimizer.step()
 
-
-    #Evaluate
+    # Evaluate
     results_list = []
     for batch_idx, (X, y, gender, filename) in tqdm(
         enumerate(validation_generator), total=len(validation_generator)
@@ -95,7 +74,4 @@ def main(df_train, df_test, image_dir, df_val, model, device):
     results_male = results_df.loc[results_df["gender"] > 0.5]
     results_female = results_df.loc[results_df["gender"] < 0.5]
 
-    print("Metric fn :", metric_fn(results_male, results_female))
-
-if __name__ == "__main__":
-    main()
+    return metric_fn(results_male, results_female)

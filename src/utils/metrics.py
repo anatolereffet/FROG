@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def error_fn(df):
     pred = df.loc[:, "pred"]
     ground_truth = df.loc[:, "target"]

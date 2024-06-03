@@ -1,12 +1,12 @@
 import pandas as pd
 import torch
 from tqdm import tqdm
-from utils.dataset import Dataset_test
+from utils.dataset import Dataset
 
 
-def main(df_test, image_dir , model, device):
-    print("\nEvaluating test dataset...")
-    test_set = Dataset_test(df_test, image_dir)
+def test(test_set, image_dir, model, device):
+    print("\nTesting model ...")
+    test_set = Dataset(test_set, image_dir, train=False)
     params_test = {"batch_size": 8, "shuffle": False, "num_workers": 0}
     test_generator = torch.utils.data.DataLoader(test_set, **params_test)
 

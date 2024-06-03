@@ -324,7 +324,7 @@ packages:
   name: frog
   version: 0.1.0
   path: .
-  sha256: 3f5af7c46640592564dce3b979e3fc2b828e6ce16e1e987a8a377bb4aa15980b
+  sha256: 5cc66dffe4b9d56119638142cc3517de564a68a547e7b1590264f85b53859b5f
   requires_python: '>=3.9'
   editable: true
 - kind: conda

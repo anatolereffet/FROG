@@ -12,3 +12,10 @@ Setup environment & run example
 pixi shell
 pixi run python src/helloworld.py
 ```
+
+Pre-commit formatting & linting
+```bash
+pixi shell
+ruff check --fix
+ruff format
+```

@@ -7,16 +7,18 @@ from torchvision import transforms
 class Dataset(torch.utils.data.Dataset):
     "Characterizes a dataset for PyTorch"
 
-    def __init__(self, df, image_dir, test=False):
+    def __init__(self, df, image_dir, train=True):
         "Initialization"
         self.image_dir = image_dir
         self.df = df
-        self.transform = transforms.ToTensor()
-        if not test:
-            self.df = self.df.dropna()
-            self.df = self.df.reset_index(drop=True)
+        self.df = self.df.dropna()
+        self.df = self.df.reset_index(drop=True)
+        if train:
+            self.transform = transforms.Compose([
+                transforms.ToTensor()
+            ])
         else:
-            self.df = self.df.reset_index(drop=True)
+            self.transform = transforms.ToTensor()
 
     def __len__(self):
         "Denotes the total number of samples"

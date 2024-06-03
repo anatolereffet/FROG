@@ -34,6 +34,19 @@ class ConvNet(nn.Module):
         return x
 
 
+class MTCNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.feat_extract = ConvNet()
+        self.fc = nn.Linear(1024, 1)
+
+    def forward(self, x):
+        x = self.feat_extract(x)
+        x = self.fc(x)
+
+        return x
+
+
 class SingularTask(nn.Module):
     def __init__(self, finetune: bool = False):
         super().__init__()

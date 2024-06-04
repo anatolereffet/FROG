@@ -49,8 +49,10 @@ def load_data(parent_dir: str):
     """
     Simple data loading according to parent directory
     """
-    train = pd.read_csv(f"{parent_dir}/listes_training/data_100K/train_100K.csv", delimiter=" ")
-    test = pd.read_csv(f"{parent_dir}/listes_training/data_100K/test_students.csv", delimiter=" ")
+    train = pd.read_csv(
+        f"{parent_dir}/listes_training/data_100K/train_100K.csv", delimiter=" ")
+    test = pd.read_csv(
+        f"{parent_dir}/listes_training/data_100K/test_students.csv", delimiter=" ")
 
     return train, test
 
@@ -75,11 +77,11 @@ def split_data(train, test, runner: bool = False, n_samples: Optional[int] = 100
         print(f"Training on a sample of the data {n_samples}")
         n_split = n_samples
         test = test.loc[:n_split]
-        val = train.loc[n_split : n_samples * 2]
+        train = train.loc[n_split: n_samples * 2]
     else:
         print("Training on the complete dataset")
-        val = train.loc[n_split:]
+        train = train.loc[n_split:]
 
-    train = train.loc[:n_split]
+    val = train.loc[:n_split]
 
     return train, test, val

@@ -20,7 +20,11 @@ def main(parent_dir, runner, submission_ready):
     torch.backends.cudnn.benchmark = True
 
     # Training
-    metric_train = train_model(train_set, val_set, image_dir, model, device)
+    learning_rate = 0.001
+    num_epochs = 10
+    batch_size = 16
+    metric_train = train_model(train_set, val_set, image_dir, model,
+                               device, learning_rate=learning_rate, num_epochs=num_epochs, batch_size=batch_size)
 
     # Log Train results
     print(f"Metric fn : {metric_train}")

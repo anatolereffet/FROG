@@ -9,26 +9,39 @@ from utils.dataset import Dataset
 from utils.metrics import metric_fn
 
 
-def train(train_set, val_set, image_dir, model, device):
+def train(train_set, val_set, image_dir, model, device, **params):
     train_set = Dataset(train_set, image_dir)
     val_set = Dataset(val_set, image_dir)
 
-    params_train = {"batch_size": 1, "shuffle": True, "num_workers": 0}
-    params_val = {"batch_size": 1, "shuffle": False, "num_workers": 0}
+    default_params = {"learning_rate": 0.001,
+                      "num_epochs": 10,
+                      "batch_size": 1
+                      }
+    params_train = {**default_params, **params}
 
-    training_generator = DataLoader(train_set, **params_train)
-    validation_generator = DataLoader(val_set, **params_val)
+    params_trainloader = {"batch_size": params_train["batch_size"],
+                          "shuffle": True, "num_workers": 0}
+
+    params_valloader = {"batch_size": params_train["batch_size"],
+                        "shuffle": False, "num_workers": 0}
+
+    training_generator = DataLoader(train_set, **params_trainloader)
+    validation_generator = DataLoader(val_set, **params_valloader)
 
     ###################   MODEL   #################
     if torch.cuda.is_available():
         print("\nCuda available")
         model.cuda()
 
+    learning_rate = params_train["learning_rate"]
+    num_epochs = params_train["num_epochs"]
+    batch_size = params_train["batch_size"]
+
     # Loss
     loss_fn = MSELoss()
 
     # Optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     # Train
     print("\nTraining model ...")
@@ -36,11 +49,10 @@ def train(train_set, val_set, image_dir, model, device):
     # MLflow: Start a new run
     with mlflow.start_run():
         # Log parameters
-        mlflow.log_param("batch_size", params_train["batch_size"])
-        mlflow.log_param("learning_rate", 0.001)
-        mlflow.log_param("num_epochs", 1)
+        mlflow.log_param("batch_size", batch_size)
+        mlflow.log_param("learning_rate", learning_rate)
+        mlflow.log_param("num_epochs", num_epochs)
 
-        num_epochs = 1
         for n in range(num_epochs):
             print(f"Epoch {n}")
             for batch_idx, (X, y, gender, filename) in tqdm(

@@ -11,7 +11,8 @@ def main(parent_dir, runner, submission_ready):
     image_dir = f"{parent_dir}/crops_100K"
     train_set, test_set = load_data(parent_dir)
 
-    train_set, test_set, val_set = split_data(train_set, test_set, runner=runner)
+    train_set, test_set, val_set = split_data(
+        train_set, test_set, runner=runner)
 
     model = mobilenet_v3_small(num_classes=1)
 

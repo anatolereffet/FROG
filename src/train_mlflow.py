@@ -1,72 +1,96 @@
-def train(dataloader, model, loss_fn, metrics_fn, optimizer, epoch):
-    """Train the model on a single pass of the dataloader.
-
-    Args:
-        dataloader: an instance of `torch.utils.data.DataLoader`, containing the training data.
-        model: an instance of `torch.nn.Module`, the model to be trained.
-        loss_fn: a callable, the loss function.
-        metrics_fn: a callable, the metrics function.
-        optimizer: an instance of `torch.optim.Optimizer`, the optimizer used for training.
-        epoch: an integer, the current epoch number.
-    """
-    model.train()
-    for batch_idx, (X, y, gender, filename) in tqdm(
-            enumerate(training_generator), total=len(training_generator)):
-        X, y = X.to(device), y.to(device)
-        y = torch.reshape(y, (len(y), 1))
-        y_pred = model(X)
-        loss = loss_fn(y_pred, y)
-
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-
-        if batch % 100 == 0:
-            loss, current = loss.item(), batch
-            step = batch // 100 * (epoch + 1)
-            mlflow.log_metric("loss", f"{loss:2f}", step=step)
-            mlflow.log_metric("accuracy", f"{accuracy:2f}", step=step)
-            print(
-                f"loss: {loss:2f} accuracy: {accuracy:2f} [{current} / {len(dataloader)}]")
+import mlflow
+import mlflow.pytorch
+import torch
+import pandas as pd
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+from torch.nn import MSELoss
+from utils.dataset import Dataset
+from utils.metrics import metric_fn
 
 
-def evaluate(dataloader, model, loss_fn, metrics_fn, epoch):
-    """Evaluate the model on a single pass of the dataloader.
+def train(train_set, val_set, image_dir, model, device):
+    train_set = Dataset(train_set, image_dir)
+    val_set = Dataset(val_set, image_dir)
 
-    Args:
-        dataloader: an instance of `torch.utils.data.DataLoader`, containing the eval data.
-        model: an instance of `torch.nn.Module`, the model to be trained.
-        loss_fn: a callable, the loss function.
-        metrics_fn: a callable, the metrics function.
-        epoch: an integer, the current epoch number.
-    """
-    num_batches = len(dataloader)
-    model.eval()
-    eval_loss, eval_accuracy = 0, 0
-    results_list = []
-    with torch.no_grad():
+    params_train = {"batch_size": 1, "shuffle": True, "num_workers": 0}
+    params_val = {"batch_size": 1, "shuffle": False, "num_workers": 0}
+
+    training_generator = DataLoader(train_set, **params_train)
+    validation_generator = DataLoader(val_set, **params_val)
+
+    ###################   MODEL   #################
+    if torch.cuda.is_available():
+        print("\nCuda available")
+        model.cuda()
+
+    # Loss
+    loss_fn = MSELoss()
+
+    # Optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+    # Train
+    print("\nTraining model ...")
+
+    # MLflow: Start a new run
+    with mlflow.start_run():
+        # Log parameters
+        mlflow.log_param("batch_size", params_train["batch_size"])
+        mlflow.log_param("learning_rate", 0.001)
+        mlflow.log_param("num_epochs", 1)
+
+        num_epochs = 1
+        for n in range(num_epochs):
+            print(f"Epoch {n}")
+            for batch_idx, (X, y, gender, filename) in tqdm(
+                enumerate(training_generator), total=len(training_generator)
+            ):
+                # Transfer to GPU
+                X, y = X.to(device), y.to(device)
+                y = torch.reshape(y, (len(y), 1))
+                y_pred = model(X)
+                loss = loss_fn(y_pred, y)
+
+                if loss.isnan():
+                    print(filename)
+                    print("label", y)
+                    print("y_pred", y_pred)
+                    break
+
+                if batch_idx % 200 == 0:
+                    print(loss)
+                    # Log the loss as a metric
+                    mlflow.log_metric(
+                        "loss", loss.item(), step=batch_idx + n * len(training_generator))
+
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+        # Evaluate
+        results_list = []
         for batch_idx, (X, y, gender, filename) in tqdm(
-                enumerate(validation_generator), total=len(validation_generator)):
+            enumerate(validation_generator), total=len(validation_generator)
+        ):
             X, y = X.to(device), y.to(device)
             y_pred = model(X)
-            eval_loss += loss_fn(pred, y).item()
-            eval_accuracy += metrics_fn(pred, y)
             for i in range(len(X)):
                 results_list.append(
                     {"pred": float(y_pred[i]), "target": float(
                         y[i]), "gender": float(gender[i])}
                 )
+        results_df = pd.DataFrame(results_list)
 
-    results_df = pd.DataFrame(results_list)
-    results_male = results_df.loc[results_df["gender"] > 0.5]
-    results_female = results_df.loc[results_df["gender"] < 0.5]
+        results_male = results_df.loc[results_df["gender"] > 0.5]
+        results_female = results_df.loc[results_df["gender"] < 0.5]
 
-    eval_loss /= num_batches
-    eval_accuracy /= num_batches
-    mlflow.log_metric("eval_loss", f"{eval_loss:2f}", step=epoch)
-    mlflow.log_metric("eval_accuracy", f"{eval_accuracy:2f}", step=epoch)
-    mlflow.log_metric("results_male", f"{results_male:2f}", step=epoch)
-    mlflow.log_metric("results_female", f"{results_female:2f}", step=epoch)
+        # Log the model
+        mlflow.pytorch.log_model(model, "model")
 
-    print(
-        f"Eval metrics: \nAccuracy: {eval_accuracy:.2f}, Avg loss: {eval_loss:2f} \n", f"results_male: {results_male}", f"results_female: {results_female}")
+        # Assuming metric_fn is defined and returns a metric dictionary
+        metrics = metric_fn(results_male, results_female)
+        for metric_name, metric_value in metrics.items():
+            mlflow.log_metric(metric_name, metric_value)
+
+    return metrics

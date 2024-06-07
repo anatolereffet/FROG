@@ -15,7 +15,7 @@ def train(train_set, val_set, image_dir, model, device, **params):
 
     default_params = {"learning_rate": 0.001,
                       "num_epochs": 10,
-                      "batch_size": 1
+                      "batch_size": 5
                       }
     params_train = {**default_params, **params}
 
@@ -43,10 +43,8 @@ def train(train_set, val_set, image_dir, model, device, **params):
     # Optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-    # Train
     print("\nTraining model ...")
 
-    # MLflow: Start a new run
     with mlflow.start_run():
         # Log parameters
         mlflow.log_param("batch_size", batch_size)
@@ -58,7 +56,6 @@ def train(train_set, val_set, image_dir, model, device, **params):
             for batch_idx, (X, y, gender, filename) in tqdm(
                 enumerate(training_generator), total=len(training_generator)
             ):
-                # Transfer to GPU
                 X, y = X.to(device), y.to(device)
                 y = torch.reshape(y, (len(y), 1))
                 y_pred = model(X)
@@ -100,7 +97,6 @@ def train(train_set, val_set, image_dir, model, device, **params):
         # Log the model
         mlflow.pytorch.log_model(model, "model")
 
-        # Assuming metric_fn is defined and returns a metric dictionary
         metrics = metric_fn(results_male, results_female)
         for metric_name, metric_value in metrics.items():
             mlflow.log_metric(metric_name, metric_value)

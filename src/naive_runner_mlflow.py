@@ -14,6 +14,10 @@ def main(parent_dir, runner, submission_ready):
     train_set, test_set, val_set = split_data(
         train_set, test_set, runner=runner)
 
+    print(f"Train set: {len(train_set)}")
+    print(f"Validation set: {len(val_set)}")
+    print(f"Test set: {len(test_set)}")
+
     model = mobilenet_v3_small(num_classes=1)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -21,7 +25,7 @@ def main(parent_dir, runner, submission_ready):
 
     # Training
     learning_rate = 0.001
-    num_epochs = 10
+    num_epochs = 1
     batch_size = 16
     metric_train = train_model(train_set, val_set, image_dir, model,
                                device, learning_rate=learning_rate, num_epochs=num_epochs, batch_size=batch_size)

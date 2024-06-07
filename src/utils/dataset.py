@@ -73,6 +73,8 @@ def split_data(train, test, runner: bool = False, n_samples: Optional[int] = 100
     """
     n_split = 20000
 
+    val = train.loc[:n_split]
+
     if not runner:
         print(f"Training on a sample of the data {n_samples}")
         n_split = n_samples
@@ -81,7 +83,5 @@ def split_data(train, test, runner: bool = False, n_samples: Optional[int] = 100
     else:
         print("Training on the complete dataset")
         train = train.loc[n_split:]
-
-    val = train.loc[:n_split]
 
     return train, test, val

@@ -13,17 +13,20 @@ def train(train_set, val_set, image_dir, model, device, **params):
     train_set = Dataset(train_set, image_dir)
     val_set = Dataset(val_set, image_dir)
 
-    default_params = {"learning_rate": 0.001,
-                      "num_epochs": 10,
-                      "batch_size": 5
-                      }
+    default_params = {"learning_rate": 0.001, "num_epochs": 10, "batch_size": 5}
     params_train = {**default_params, **params}
 
-    params_trainloader = {"batch_size": params_train["batch_size"],
-                          "shuffle": True, "num_workers": 0}
+    params_trainloader = {
+        "batch_size": params_train["batch_size"],
+        "shuffle": True,
+        "num_workers": 0,
+    }
 
-    params_valloader = {"batch_size": params_train["batch_size"],
-                        "shuffle": False, "num_workers": 0}
+    params_valloader = {
+        "batch_size": params_train["batch_size"],
+        "shuffle": False,
+        "num_workers": 0,
+    }
 
     training_generator = DataLoader(train_set, **params_trainloader)
     validation_generator = DataLoader(val_set, **params_valloader)
@@ -71,7 +74,8 @@ def train(train_set, val_set, image_dir, model, device, **params):
                     print(loss)
                     # Log the loss as a metric
                     mlflow.log_metric(
-                        "loss", loss.item(), step=batch_idx + n * len(training_generator))
+                        "loss", loss.item(), step=batch_idx + n * len(training_generator)
+                    )
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -86,8 +90,7 @@ def train(train_set, val_set, image_dir, model, device, **params):
             y_pred = model(X)
             for i in range(len(X)):
                 results_list.append(
-                    {"pred": float(y_pred[i]), "target": float(
-                        y[i]), "gender": float(gender[i])}
+                    {"pred": float(y_pred[i]), "target": float(y[i]), "gender": float(gender[i])}
                 )
         results_df = pd.DataFrame(results_list)
 
@@ -97,8 +100,11 @@ def train(train_set, val_set, image_dir, model, device, **params):
         # Log the model
         mlflow.pytorch.log_model(model, "model")
 
-        metrics = metric_fn(results_male, results_female)
-        for metric_name, metric_value in metrics.items():
-            mlflow.log_metric(metric_name, metric_value)
+        glob_metric, metric_male, metric_female = metric_fn(
+            results_male, results_female, detail=True
+        )
+        mlflow.log_metric("metric_fn", glob_metric)
+        mlflow.log_metric("metric_fn_male", metric_male)
+        mlflow.log_metric("metric_fn_female", metric_female)
 
-    return metrics
+    return glob_metric

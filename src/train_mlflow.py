@@ -3,7 +3,7 @@ import mlflow.pytorch
 import torch
 import pandas as pd
 from torch.utils.data import DataLoader
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from torch.nn import MSELoss
 from utils.dataset import Dataset
 from utils.metrics import metric_fn
@@ -58,6 +58,7 @@ def train(train_set, val_set, image_dir, model, device, **params):
         for n in range(num_epochs):
             print(f"Epoch {n}")
             model.train()
+            results_list = []
             for batch_idx, (X, y, gender, filename) in tqdm(
                 enumerate(training_generator), total=len(training_generator)
             ):
@@ -78,45 +79,71 @@ def train(train_set, val_set, image_dir, model, device, **params):
                     mlflow.log_metric(
                         "loss", loss.item(), step=batch_idx + n * len(training_generator)
                     )
-
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-        # Evaluate
-        model.eval()  # Set the model to evaluation mode
-        val_loss = 0.0
-        results_list = []
-        with torch.no_grad():
-            for batch_idx, (X, y, gender, filename) in tqdm(
-                enumerate(validation_generator), total=len(validation_generator)
-            ):
-                X, y = X.to(device), y.to(device)
-                y_pred = model(X)
-                loss = loss_fn(y_pred, y)
-                val_loss += loss.item()
-
                 for i in range(len(X)):
                     results_list.append(
                         {"pred": float(y_pred[i]), "target": float(
                             y[i]), "gender": float(gender[i])}
                     )
 
-        val_loss /= len(validation_generator)
-        mlflow.log_metric("val_loss", val_loss, step=n)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
-        results_df = pd.DataFrame(results_list)
-        results_male = results_df.loc[results_df["gender"] > 0.5]
-        results_female = results_df.loc[results_df["gender"] < 0.5]
+            results_df = pd.DataFrame(results_list)
+            results_male = results_df.loc[results_df["gender"] > 0.5]
+            results_female = results_df.loc[results_df["gender"] < 0.5]
+            glob_metric, metric_male, metric_female = metric_fn(
+                results_male, results_female, detail=True
+            )
+
+            mlflow.log_metric("train_metric_fn", glob_metric, step=n+1)
+            mlflow.log_metric("train_metric_fn_male", metric_male, step=n+1)
+            mlflow.log_metric("train_metric_fn_female",
+                              metric_female, step=n+1)
+
+            model.eval()
+            with torch.no_grad():
+                results_list = []
+                for batch_idx, (X, y, gender, filename) in tqdm(
+                    enumerate(validation_generator), total=len(validation_generator)
+                ):
+                    X, y = X.to(device), y.to(device)
+                    y = torch.reshape(y, (len(y), 1))
+                    y_pred = model(X)
+                    val_loss = loss_fn(y_pred, y)
+
+                    if val_loss.isnan():
+                        print(filename)
+                        print("label", y)
+                        print("y_pred", y_pred)
+                        break
+
+                    if batch_idx % 200 == 0:
+                        print(val_loss)
+                        # Log the loss as a metric
+                        mlflow.log_metric(
+                            "val_loss", val_loss.item(), step=batch_idx + n * len(validation_generator)
+                        )
+
+                    for i in range(len(X)):
+                        results_list.append(
+                            {"pred": float(y_pred[i]), "target": float(
+                                y[i]), "gender": float(gender[i])}
+                        )
+
+                results_df = pd.DataFrame(results_list)
+                results_male = results_df.loc[results_df["gender"] > 0.5]
+                results_female = results_df.loc[results_df["gender"] < 0.5]
+
+                glob_metric, metric_male, metric_female = metric_fn(
+                    results_male, results_female, detail=True
+                )
+
+                mlflow.log_metric("val_metric_fn", glob_metric, step=n+1)
+                mlflow.log_metric("val_metric_fn_male", metric_male, step=n+1)
+                mlflow.log_metric("val_metric_fn_female",
+                                  metric_female, step=n+1)
 
         # Log the model
         mlflow.pytorch.log_model(model, "model")
-
-        glob_metric, metric_male, metric_female = metric_fn(
-            results_male, results_female, detail=True
-        )
-        mlflow.log_metric("metric_fn", glob_metric)
-        mlflow.log_metric("metric_fn_male", metric_male)
-        mlflow.log_metric("metric_fn_female", metric_female)
-
     return glob_metric

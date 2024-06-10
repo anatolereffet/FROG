@@ -28,7 +28,7 @@ def main(parent_dir, runner, submission_ready):
     # Training
     learning_rate = 0.001
     num_epochs = 2
-    batch_size = 32
+    batch_size = 16
     metric_train = train_model(
         train_set,
         val_set,

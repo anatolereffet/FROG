@@ -21,8 +21,8 @@ class Dataset(torch.utils.data.Dataset):
                 [
                     v2.ToImage(),
                     v2.ToDtype(torch.float32, scale=True),
-                    # v2.RandomHorizontalFlip(p=0.5),
-                    # v2.RandomRotation(30),
+                    v2.RandomHorizontalFlip(p=0.5),
+                    v2.RandomRotation([-30, 30]),
                 ]
             )
         else:

@@ -18,10 +18,11 @@ class ConvNet(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.conv1 = ConvBlock(1, 8, 5)
+        self.conv1 = ConvBlock(3, 8, 5)
         self.conv2 = ConvBlock(8, 16, 5)
         self.conv3 = ConvBlock(16, 32, 5)
-        self.fc = nn.Linear(32 * 9 * 9, 1024)
+        # Adapt the feature map of the paper to our img input
+        self.fc = nn.Linear(32 * 24 * 24, 1024)
 
     def forward(self, x):
         x = self.conv1(x)

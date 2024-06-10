@@ -13,7 +13,8 @@ def main(parent_dir, runner, submission_ready):
     image_dir = f"{parent_dir}/crops_100K"
     train_set, test_set = load_data(parent_dir)
 
-    train_set, test_set, val_set = split_data(train_set, test_set, runner=runner)
+    train_set, test_set, val_set = split_data(
+        train_set, test_set, runner=runner)
 
     print(f"Train set: {len(train_set)}")
     print(f"Validation set: {len(val_set)}")
@@ -26,8 +27,8 @@ def main(parent_dir, runner, submission_ready):
 
     # Training
     learning_rate = 0.001
-    num_epochs = 25
-    batch_size = 8
+    num_epochs = 2
+    batch_size = 32
     metric_train = train_model(
         train_set,
         val_set,

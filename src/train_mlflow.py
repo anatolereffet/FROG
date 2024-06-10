@@ -13,7 +13,8 @@ def train(train_set, val_set, image_dir, model, device, **params):
     train_set = Dataset(train_set, image_dir)
     val_set = Dataset(val_set, image_dir)
 
-    default_params = {"learning_rate": 0.001, "num_epochs": 10, "batch_size": 5}
+    default_params = {"learning_rate": 0.001,
+                      "num_epochs": 10, "batch_size": 5}
     params_train = {**default_params, **params}
 
     params_trainloader = {
@@ -47,7 +48,7 @@ def train(train_set, val_set, image_dir, model, device, **params):
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     print("\nTraining model ...")
-
+    mlflow.set_tracking_uri("http://localhost:5000")
     with mlflow.start_run():
         # Log parameters
         mlflow.log_param("batch_size", batch_size)
@@ -56,6 +57,7 @@ def train(train_set, val_set, image_dir, model, device, **params):
 
         for n in range(num_epochs):
             print(f"Epoch {n}")
+            model.train()
             for batch_idx, (X, y, gender, filename) in tqdm(
                 enumerate(training_generator), total=len(training_generator)
             ):
@@ -82,18 +84,28 @@ def train(train_set, val_set, image_dir, model, device, **params):
                 optimizer.step()
 
         # Evaluate
+        model.eval()  # Set the model to evaluation mode
+        val_loss = 0.0
         results_list = []
-        for batch_idx, (X, y, gender, filename) in tqdm(
-            enumerate(validation_generator), total=len(validation_generator)
-        ):
-            X, y = X.to(device), y.to(device)
-            y_pred = model(X)
-            for i in range(len(X)):
-                results_list.append(
-                    {"pred": float(y_pred[i]), "target": float(y[i]), "gender": float(gender[i])}
-                )
-        results_df = pd.DataFrame(results_list)
+        with torch.no_grad():
+            for batch_idx, (X, y, gender, filename) in tqdm(
+                enumerate(validation_generator), total=len(validation_generator)
+            ):
+                X, y = X.to(device), y.to(device)
+                y_pred = model(X)
+                loss = loss_fn(y_pred, y)
+                val_loss += loss.item()
 
+                for i in range(len(X)):
+                    results_list.append(
+                        {"pred": float(y_pred[i]), "target": float(
+                            y[i]), "gender": float(gender[i])}
+                    )
+
+        val_loss /= len(validation_generator)
+        mlflow.log_metric("val_loss", val_loss, step=n)
+
+        results_df = pd.DataFrame(results_list)
         results_male = results_df.loc[results_df["gender"] > 0.5]
         results_female = results_df.loc[results_df["gender"] < 0.5]
 

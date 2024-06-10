@@ -67,7 +67,8 @@ def train(train_set, val_set, image_dir, model, device):
         y_pred = model(X)
         for i in range(len(X)):
             results_list.append(
-                {"pred": float(y_pred[i]), "target": float(y[i]), "gender": float(gender[i])}
+                {"pred": float(y_pred[i]), "target": float(
+                    y[i]), "gender": float(gender[i])}
             )
     results_df = pd.DataFrame(results_list)
 

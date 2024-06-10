@@ -11,10 +11,13 @@ def test(test_set, image_dir, model, device):
     test_generator = torch.utils.data.DataLoader(test_set, **params_test)
 
     results_list = []
-    for batch_idx, (X, filename) in tqdm(enumerate(test_generator), total=len(test_generator)):
-        X = X.to(device)
-        y_pred = model(X)
-        for i in range(len(X)):
-            results_list.append({"pred": float(y_pred[i])})
+    model.eval()
+    with torch.no_grad():
+        for batch_idx, (X, filename) in tqdm(enumerate(test_generator), total=len(test_generator)):
+            X = X.to(device)
+            y_pred = model(X)
+            for i in range(len(X)):
+                results_list.append({"pred": float(y_pred[i])})
+
     test_df = pd.DataFrame(results_list)
     return test_df

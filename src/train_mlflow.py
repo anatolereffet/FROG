@@ -10,8 +10,8 @@ from utils.metrics import metric_fn
 
 
 def train(train_set, val_set, image_dir, model, device, **params):
-    train_set = Dataset(train_set, image_dir)
-    val_set = Dataset(val_set, image_dir)
+    train_set = Dataset(train_set, image_dir, mode="train")
+    val_set = Dataset(val_set, image_dir, mode="val")
 
     default_params = {"learning_rate": 0.001, "num_epochs": 10, "batch_size": 5}
     params_train = {**default_params, **params}
@@ -20,14 +20,12 @@ def train(train_set, val_set, image_dir, model, device, **params):
         "batch_size": params_train["batch_size"],
         "shuffle": True,
         "num_workers": 0,
-        "mode": "train",
     }
 
     params_valloader = {
         "batch_size": params_train["batch_size"],
         "shuffle": False,
         "num_workers": 0,
-        "mode": "val",
     }
 
     training_generator = DataLoader(train_set, **params_trainloader)
@@ -148,7 +146,7 @@ def train(train_set, val_set, image_dir, model, device, **params):
                 )
                 if glob_metric < best_val_metric:
                     best_val_metric = glob_metric
-                    torch.save(model.state_dict(), f"./src/model_path/epoch{n+1}.pth")
+                    torch.save(model.state_dict(), f"./src/model_path/model50ep/epoch{n+1}.pth")
 
                 mlflow.log_metric("val_metric_fn", glob_metric, step=n + 1)
                 mlflow.log_metric("val_metric_fn_male", metric_male, step=n + 1)

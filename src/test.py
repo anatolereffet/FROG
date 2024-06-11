@@ -6,8 +6,8 @@ from utils.dataset import Dataset
 
 def test(test_set, image_dir, model, device):
     print("\nTesting model ...")
-    test_set = Dataset(test_set, image_dir, train=False)
-    params_test = {"batch_size": 8, "shuffle": False, "num_workers": 0, "mode": "test"}
+    test_set = Dataset(test_set, image_dir, mode="test")
+    params_test = {"batch_size": 8, "shuffle": False, "num_workers": 0}
     test_generator = torch.utils.data.DataLoader(test_set, **params_test)
 
     results_list = []

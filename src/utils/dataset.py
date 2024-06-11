@@ -4,6 +4,8 @@ import numpy as np
 from PIL import Image
 from torchvision.transforms import v2
 from typing import Optional
+# v2.RandomHorizontalFlip(p=0.5),
+# v2.RandomRotation([-30, 30]),
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -20,13 +22,12 @@ class Dataset(torch.utils.data.Dataset):
             self.transform = v2.Compose(
                 [
                     v2.ToImage(),
-                    v2.ToDtype(torch.float32, scale=True),
-                    v2.RandomHorizontalFlip(p=0.5),
-                    v2.RandomRotation([-30, 30]),
+                    v2.ToDtype(torch.float32, scale=True)
                 ]
             )
         else:
-            self.transform = v2.Compose([v2.ToImage(), v2.ToDtype(torch.float32, scale=True)])
+            self.transform = v2.Compose(
+                [v2.ToImage(), v2.ToDtype(torch.float32, scale=True)])
 
     def __len__(self):
         "Denotes the total number of samples"
@@ -56,8 +57,10 @@ def load_data(parent_dir: str):
     """
     Simple data loading according to parent directory
     """
-    train = pd.read_csv(f"{parent_dir}/listes_training/data_100K/train_100K.csv", delimiter=" ")
-    test = pd.read_csv(f"{parent_dir}/listes_training/data_100K/test_students.csv", delimiter=" ")
+    train = pd.read_csv(
+        f"{parent_dir}/listes_training/data_100K/train_100K.csv", delimiter=" ")
+    test = pd.read_csv(
+        f"{parent_dir}/listes_training/data_100K/test_students.csv", delimiter=" ")
 
     return train, test
 
@@ -84,7 +87,7 @@ def split_data(train, test, runner: bool = False, n_samples: Optional[int] = 100
         print(f"Training on a sample of the data {n_samples}")
         n_split = n_samples
         test = test.loc[:n_split]
-        train = train.loc[n_split : n_samples * 2]
+        train = train.loc[n_split: n_samples * 2]
     else:
         print("Training on the complete dataset")
         train = train.loc[n_split:]

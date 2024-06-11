@@ -1,78 +1,55 @@
-import pandas as pd
+import mlflow
+import mlflow.pytorch
 import torch
-from torch.nn import MSELoss
-from tqdm import tqdm
+from torch.utils.data import DataLoader
 from utils.dataset import Dataset
-from src.utils.metrics import metric_fn
+
+import pytorch_lightning as pl
+from torch.utils.data import DataLoader
+from pytorch_lightning.loggers import MLFlowLogger
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 
-def train(train_set, val_set, image_dir, model, device):
+def train(train_set, val_set, image_dir, model, **params):
     train_set = Dataset(train_set, image_dir)
     val_set = Dataset(val_set, image_dir)
 
-    params_train = {"batch_size": 1, "shuffle": True, "num_workers": 0}
+    default_params = {"learning_rate": 0.001,
+                      "num_epochs": 10, "batch_size": 5}
+    params_train = {**default_params, **params}
 
-    params_val = {"batch_size": 1, "shuffle": False, "num_workers": 0}
+    params_trainloader = {
+        "batch_size": params_train["batch_size"],
+        "shuffle": True,
+        "num_workers": 0,
+    }
 
-    training_generator = torch.utils.data.DataLoader(train_set, **params_train)
-    validation_generator = torch.utils.data.DataLoader(val_set, **params_val)
+    params_valloader = {
+        "batch_size": params_train["batch_size"],
+        "shuffle": False,
+        "num_workers": 0,
+    }
 
-    ###################   MODEL   #################
-    if torch.cuda.is_available():
-        print("\nCuda available")
-        model.cuda()
+    train_loader = DataLoader(train_set, **params_trainloader)
+    val_loader = DataLoader(val_set, **params_valloader)
 
-    # Loss
-    loss_fn = MSELoss()
+    learning_rate = params_train["learning_rate"]
+    num_epochs = params_train["num_epochs"]
+    batch_size = params_train["batch_size"]
 
-    # Optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    # Initialize MLflow logger
+    mlflow_logger = MLFlowLogger(
+        experiment_name="FaceOcclusionDetection", tracking_uri="http://localhost:5000")
 
-    # Train
-    print("\nTraining model ...")
+    # Initialize trainer
+    trainer = pl.Trainer(
+        max_epochs=10,
+        logger=mlflow_logger,
+        callbacks=[ModelCheckpoint(monitor='val_loss')]
+    )
 
-    # Fit
-    num_epochs = 1
-
-    for n in range(num_epochs):
-        print(f"Epoch {n}")
-        for batch_idx, (X, y, gender, filename) in tqdm(
-            enumerate(training_generator), total=len(training_generator)
-        ):
-            # Transfer to GPU
-            X, y = X.to(device), y.to(device)
-            y = torch.reshape(y, (len(y), 1))
-            y_pred = model(X)
-            loss = loss_fn(y_pred, y)
-
-            if loss.isnan():
-                print(filename)
-                print("label", y)
-                print("y_pred", y_pred)
-                break
-
-            if batch_idx % 200 == 0:
-                print(loss)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-    # Evaluate
-    results_list = []
-    for batch_idx, (X, y, gender, filename) in tqdm(
-        enumerate(validation_generator), total=len(validation_generator)
-    ):
-        X, y = X.to(device), y.to(device)
-        y_pred = model(X)
-        for i in range(len(X)):
-            results_list.append(
-                {"pred": float(y_pred[i]), "target": float(
-                    y[i]), "gender": float(gender[i])}
-            )
-    results_df = pd.DataFrame(results_list)
-
-    results_male = results_df.loc[results_df["gender"] > 0.5]
-    results_female = results_df.loc[results_df["gender"] < 0.5]
-
-    return metric_fn(results_male, results_female)
+    # Train the model
+    with mlflow.start_run() as run:
+        mlflow_logger.log_hyperparams(model.hparams)
+        trainer.fit(model, train_loader, val_loader)
+        mlflow.pytorch.log_model(model, "models")

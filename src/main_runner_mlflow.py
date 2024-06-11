@@ -1,7 +1,6 @@
 import argparse
 import torch
 
-# from torchvision.models import mobilenet_v3_small
 from models.network import MTCNN
 
 from utils.dataset import load_data, split_data
@@ -13,8 +12,7 @@ def main(parent_dir, runner, submission_ready):
     image_dir = f"{parent_dir}/crops_100K"
     train_set, test_set = load_data(parent_dir)
 
-    train_set, test_set, val_set = split_data(
-        train_set, test_set, runner=runner)
+    train_set, test_set, val_set = split_data(train_set, test_set, runner=runner)
 
     print(f"Train set: {len(train_set)}")
     print(f"Validation set: {len(val_set)}")
@@ -22,12 +20,13 @@ def main(parent_dir, runner, submission_ready):
 
     model = MTCNN()
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = "mps"
     torch.backends.cudnn.benchmark = True
 
     # Training
-    learning_rate = 0.001
-    num_epochs = 2
+    learning_rate = 0.0001
+    num_epochs = 25
     batch_size = 16
     metric_train = train_model(
         train_set,

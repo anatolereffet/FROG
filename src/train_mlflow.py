@@ -13,29 +13,31 @@ def train(train_set, val_set, image_dir, model, device, **params):
     train_set = Dataset(train_set, image_dir)
     val_set = Dataset(val_set, image_dir)
 
-    default_params = {"learning_rate": 0.001,
-                      "num_epochs": 10, "batch_size": 5}
+    default_params = {"learning_rate": 0.001, "num_epochs": 10, "batch_size": 5}
     params_train = {**default_params, **params}
 
     params_trainloader = {
         "batch_size": params_train["batch_size"],
         "shuffle": True,
         "num_workers": 0,
+        "mode": "train",
     }
 
     params_valloader = {
         "batch_size": params_train["batch_size"],
         "shuffle": False,
         "num_workers": 0,
+        "mode": "val",
     }
 
     training_generator = DataLoader(train_set, **params_trainloader)
     validation_generator = DataLoader(val_set, **params_valloader)
 
     ###################   MODEL   #################
-    if torch.cuda.is_available():
-        print("\nCuda available")
-        model.cuda()
+    # if torch.cuda.is_available():
+    #    print("\nCuda available")
+    #    model.cuda()
+    model.to(device)
 
     learning_rate = params_train["learning_rate"]
     num_epochs = params_train["num_epochs"]
@@ -54,7 +56,7 @@ def train(train_set, val_set, image_dir, model, device, **params):
         mlflow.log_param("batch_size", batch_size)
         mlflow.log_param("learning_rate", learning_rate)
         mlflow.log_param("num_epochs", num_epochs)
-
+        best_val_metric = 5
         for n in range(num_epochs):
             print(f"Epoch {n}")
             model.train()
@@ -81,8 +83,11 @@ def train(train_set, val_set, image_dir, model, device, **params):
                     )
                 for i in range(len(X)):
                     results_list.append(
-                        {"pred": float(y_pred[i]), "target": float(
-                            y[i]), "gender": float(gender[i])}
+                        {
+                            "pred": float(y_pred[i]),
+                            "target": float(y[i]),
+                            "gender": float(gender[i]),
+                        }
                     )
 
                 optimizer.zero_grad()
@@ -96,10 +101,9 @@ def train(train_set, val_set, image_dir, model, device, **params):
                 results_male, results_female, detail=True
             )
 
-            mlflow.log_metric("train_metric_fn", glob_metric, step=n+1)
-            mlflow.log_metric("train_metric_fn_male", metric_male, step=n+1)
-            mlflow.log_metric("train_metric_fn_female",
-                              metric_female, step=n+1)
+            mlflow.log_metric("train_metric_fn", glob_metric, step=n + 1)
+            mlflow.log_metric("train_metric_fn_male", metric_male, step=n + 1)
+            mlflow.log_metric("train_metric_fn_female", metric_female, step=n + 1)
 
             model.eval()
             with torch.no_grad():
@@ -122,15 +126,19 @@ def train(train_set, val_set, image_dir, model, device, **params):
                         print(val_loss)
                         # Log the loss as a metric
                         mlflow.log_metric(
-                            "val_loss", val_loss.item(), step=batch_idx + n * len(validation_generator)
+                            "val_loss",
+                            val_loss.item(),
+                            step=batch_idx + n * len(validation_generator),
                         )
 
                     for i in range(len(X)):
                         results_list.append(
-                            {"pred": float(y_pred[i]), "target": float(
-                                y[i]), "gender": float(gender[i])}
+                            {
+                                "pred": float(y_pred[i]),
+                                "target": float(y[i]),
+                                "gender": float(gender[i]),
+                            }
                         )
-
                 results_df = pd.DataFrame(results_list)
                 results_male = results_df.loc[results_df["gender"] > 0.5]
                 results_female = results_df.loc[results_df["gender"] < 0.5]
@@ -138,11 +146,13 @@ def train(train_set, val_set, image_dir, model, device, **params):
                 glob_metric, metric_male, metric_female = metric_fn(
                     results_male, results_female, detail=True
                 )
+                if glob_metric < best_val_metric:
+                    best_val_metric = glob_metric
+                    torch.save(model.state_dict(), f"./src/model_path/epoch{n+1}.pth")
 
-                mlflow.log_metric("val_metric_fn", glob_metric, step=n+1)
-                mlflow.log_metric("val_metric_fn_male", metric_male, step=n+1)
-                mlflow.log_metric("val_metric_fn_female",
-                                  metric_female, step=n+1)
+                mlflow.log_metric("val_metric_fn", glob_metric, step=n + 1)
+                mlflow.log_metric("val_metric_fn_male", metric_male, step=n + 1)
+                mlflow.log_metric("val_metric_fn_female", metric_female, step=n + 1)
 
         # Log the model
         mlflow.pytorch.log_model(model, "model")

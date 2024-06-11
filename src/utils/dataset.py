@@ -9,14 +9,14 @@ from typing import Optional
 class Dataset(torch.utils.data.Dataset):
     "Characterizes a dataset for PyTorch"
 
-    def __init__(self, df, image_dir, train=True):
+    def __init__(self, df, image_dir, mode="train"):
         "Initialization"
         self.image_dir = image_dir
         self.df = df
         self.df = self.df.dropna()
         self.df = self.df.reset_index(drop=True)
-        self.train = train
-        if train:
+        self.mode = mode
+        if mode == "train":
             self.transform = v2.Compose(
                 [
                     v2.ToImage(),
@@ -43,7 +43,7 @@ class Dataset(torch.utils.data.Dataset):
 
         X = self.transform(img)
 
-        if self.train:
+        if self.mode in ("train", "val"):
             y = np.float32(row["FaceOcclusion"])
             gender = row["gender"]
 

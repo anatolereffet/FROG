@@ -2,8 +2,11 @@ import torch
 import pandas as pd
 import numpy as np
 from PIL import Image
-from torchvision.transforms import v2
+
+# from torchvision.transforms import v2
 from typing import Optional
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -17,16 +20,21 @@ class Dataset(torch.utils.data.Dataset):
         self.df = self.df.reset_index(drop=True)
         self.mode = mode
         if mode == "train":
-            self.transform = v2.Compose(
+            self.transform = A.Compose(
                 [
-                    v2.ToImage(),
-                    v2.ToDtype(torch.float32, scale=True),
-                    v2.RandomHorizontalFlip(p=0.5),
-                    v2.RandomRotation([-30, 30]),
+                    A.HorizontalFlip(p=0.5),
+                    A.VerticalFlip(p=0.5),
+                    A.Rotate(limit=30, p=0.5),  # Smaller rotation for faces
+                    ToTensorV2(),
                 ]
             )
         else:
-            self.transform = v2.Compose([v2.ToImage(), v2.ToDtype(torch.float32, scale=True)])
+            self.transform = A.Compose(
+                [
+                    A.Resize(height=224, width=224),
+                    ToTensorV2(),
+                ]
+            )
 
     def __len__(self):
         "Denotes the total number of samples"
@@ -41,7 +49,9 @@ class Dataset(torch.utils.data.Dataset):
         # Load data and get label
         img = Image.open(f"{self.image_dir}/{filename}")
 
-        X = self.transform(img)
+        # X = self.transform(img)
+        aug = self.transform(image=np.array(img))
+        X = aug["image"]
 
         if self.mode in ("train", "val"):
             y = np.float32(row["FaceOcclusion"])

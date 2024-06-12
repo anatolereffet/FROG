@@ -2,6 +2,7 @@ import mlflow
 import mlflow.pytorch
 import torch
 import pandas as pd
+from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torch.nn import MSELoss
 from utils.dataset import Dataset
@@ -59,7 +60,9 @@ def train(train_set, val_set, image_dir, model, device, **params):
             print(f"Epoch {n}")
             model.train()
             results_list = []
-            for batch_idx, (X, y, gender, filename) in enumerate(training_generator):
+            train_loss = 0.0
+            val_loss = 0.0
+            for batch_idx, (X, y, gender, filename) in tqdm(enumerate(training_generator), total=len(training_generator)):
                 X, y = X.to(device), y.to(device)
                 y = torch.reshape(y, (len(y), 1))
                 y_pred = model(X)
@@ -71,12 +74,6 @@ def train(train_set, val_set, image_dir, model, device, **params):
                     print("y_pred", y_pred)
                     break
 
-                if batch_idx % 200 == 0:
-                    print(loss)
-                    # Log the loss as a metric
-                    mlflow.log_metric(
-                        "loss", loss.item(), step=batch_idx + n * len(training_generator)
-                    )
                 for i in range(len(X)):
                     results_list.append(
                         {
@@ -85,12 +82,15 @@ def train(train_set, val_set, image_dir, model, device, **params):
                             "gender": float(gender[i]),
                         }
                     )
-                progress = int((i + 1) / len(training_generator) * 100)
-                print("\r[ {0}{1} ] {2}%".format("#" * progress,
-                      " " * int(100 - progress), progress), end="",)
+
+                train_loss += loss.item()
+
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+
+            mlflow.log_metric(
+                "train_loss", train_loss/len(training_generator), step=n+1)
 
             results_df = pd.DataFrame(results_list)
             results_male = results_df.loc[results_df["gender"] > 0.5]
@@ -107,26 +107,17 @@ def train(train_set, val_set, image_dir, model, device, **params):
             model.eval()
             with torch.no_grad():
                 results_list = []
-                for batch_idx, (X, y, gender, filename) in enumerate(validation_generator):
+                for batch_idx, (X, y, gender, filename) in tqdm(enumerate(validation_generator), total=len(validation_generator)):
                     X, y = X.to(device), y.to(device)
                     y = torch.reshape(y, (len(y), 1))
                     y_pred = model(X)
-                    val_loss = loss_fn(y_pred, y)
+                    vloss = loss_fn(y_pred, y)
 
                     if val_loss.isnan():
                         print(filename)
                         print("label", y)
                         print("y_pred", y_pred)
                         break
-
-                    if batch_idx % 200 == 0:
-                        print(val_loss)
-                        # Log the loss as a metric
-                        mlflow.log_metric(
-                            "val_loss",
-                            val_loss.item(),
-                            step=batch_idx + n * len(validation_generator),
-                        )
 
                     for i in range(len(X)):
                         results_list.append(
@@ -136,6 +127,14 @@ def train(train_set, val_set, image_dir, model, device, **params):
                                 "gender": float(gender[i]),
                             }
                         )
+                    val_loss += vloss.item()
+
+                mlflow.log_metric(
+                    "val_loss",
+                    val_loss,
+                    step=n + 1,
+                )
+
                 results_df = pd.DataFrame(results_list)
                 results_male = results_df.loc[results_df["gender"] > 0.5]
                 results_female = results_df.loc[results_df["gender"] < 0.5]

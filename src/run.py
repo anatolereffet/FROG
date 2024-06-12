@@ -34,7 +34,7 @@ def main(parent_dir, runner, submission_ready, modelname):
 
     # Training
     learning_rate = 0.0001
-    num_epochs = 25
+    num_epochs = 40
     batch_size = 16
     metric_train = train_model(
         train_set,
@@ -79,7 +79,7 @@ if __name__ == "__main__":
         "-m",
         "--modelname",
         help="Model to use for training",
-        default="MTCNN",
+        default="MRCNN",
     )
     args = parser.parse_args()
     main(args.parent_dir, args.runner, args.submission_ready, args.modelname)

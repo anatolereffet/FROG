@@ -24,7 +24,8 @@ class Dataset(torch.utils.data.Dataset):
                 [
                     A.HorizontalFlip(p=0.5),
                     A.VerticalFlip(p=0.5),
-                    A.Rotate(limit=30, p=0.5),  # Smaller rotation for faces
+                    A.Rotate(limit=15, p=0.5),
+                    A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
                     ToTensorV2(),
                 ]
             )
@@ -32,6 +33,7 @@ class Dataset(torch.utils.data.Dataset):
             self.transform = A.Compose(
                 [
                     A.Resize(height=224, width=224),
+                    A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
                     ToTensorV2(),
                 ]
             )

@@ -5,7 +5,8 @@ class ConvBlock(nn.Module):
     def __init__(self, ch_in, ch_out, kernel_size):
         super().__init__()
 
-        self.conv = nn.Conv2d(in_channels=ch_in, out_channels=ch_out, kernel_size=kernel_size)
+        self.conv = nn.Conv2d(
+            in_channels=ch_in, out_channels=ch_out, kernel_size=kernel_size)
         self.relu = nn.ReLU()
         self.bn = nn.BatchNorm2d(num_features=ch_out)
         self.maxpool = nn.MaxPool2d(kernel_size=kernel_size - 3, stride=2)
@@ -57,28 +58,5 @@ class MTCNN(nn.Module):
         x = self.fc2(x)
         x = self.relu(x)
         x = self.fc3(x)
-
-        return x
-
-
-class SingularTask(nn.Module):
-    def __init__(self, finetune: bool = False):
-        super().__init__()
-
-        self.finetune = finetune
-        self.fc1 = nn.Linear(1024, 128)
-
-        if finetune:
-            self.fc2 = nn.Linear(128, 16)
-            self.fc3 = nn.Linear(16, 2)
-        else:
-            self.fc2 = nn.Linear(128, 22)
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.fc2(x)
-
-        if self.finetune:
-            x = self.fc3(x)
 
         return x

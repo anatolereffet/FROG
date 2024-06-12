@@ -1,13 +1,14 @@
 import argparse
 import torch
 
-from models.network import MTCNN
+from src.models.MTCNN import MTCNN
+from src.models.MRCNN import MRCNN
 
 from utils.dataset import load_data, split_data
 from test import test as test_model
 
 
-def main(parent_dir, model_path):
+def main(parent_dir, model_path, modelname):
     image_dir = f"{parent_dir}/crops_100K"
     train_set, test_set = load_data(parent_dir)
 
@@ -15,12 +16,21 @@ def main(parent_dir, model_path):
 
     print("Inference starting")
 
-    model = MTCNN()
+    if modelname == "MRCNN":
+        model = MRCNN()
+    else:
+        model = MTCNN()
 
-    device = "mps"
-    torch.backends.cudnn.benchmark = True
     model.load_state_dict(torch.load(model_path))
-    model.to(device)
+
+    if torch.cuda.is_available():
+        print("\nCuda available")
+        device = torch.device("cuda:0")
+        torch.backends.cudnn.benchmark = True
+        model.cuda()
+    else:
+        device = "mps"
+        model.to(device)
 
     # Testing
     results_df = test_model(test_set, image_dir, model, device)
@@ -42,5 +52,11 @@ if __name__ == "__main__":
         help="Model path for inference",
         default="./",
     )
+    parser.add_argument(
+        "-m",
+        "--modelname",
+        help="Model to use for training",
+        default="MTCNN",
+    )
     args = parser.parse_args()
-    main(args.parent_dir, args.model_path)
+    main(args.parent_dir, args.model_path, args.modelname)

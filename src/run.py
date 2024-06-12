@@ -1,48 +1,85 @@
-import pandas as pd
+import argparse
 import torch
-import torchvision
-import Train
-import Test
-import sys
 
-def main(name_file= "Data_Challenge.csv"):
-    ##### DATASET #####
-    df_train = pd.read_csv("../data/listes_training/data_100K/train_100K.csv", delimiter=" ")
-    df_test = pd.read_csv("../data/listes_training/data_100K/test_students.csv", delimiter=" ")
-    image_dir = "../data/crops_100K"
+from models.MTCNN import MTCNN
+from models.MRCNN import MRCNN
 
-    #Remove na
-    df_train = df_train.dropna()
-    df_test = df_test.dropna()
-
-    #split train in val and train
-    df_val = df_train.loc[:100].reset_index()
-    df_train = df_train.loc[100:200].reset_index()
-    df_test = df_test.loc[:100]
-    
-
-    ##### SET MODEL #####
-    model = torchvision.models.mobilenet_v3_small(num_classes=1)
-
-    # CUDA for PyTorch
-    use_cuda = torch.cuda.is_available()
-    device = torch.device("cuda:0" if use_cuda else "cpu")
-    torch.backends.cudnn.benchmark = True
+from utils.dataset import load_data, split_data
+from train import train as train_model
+from test import test as test_model
 
 
-    ##### TRAINING ##### 
-    Train.main(df_train, df_test, image_dir, df_val, model, device)
+def main(parent_dir, runner, submission_ready, modelname):
+    image_dir = f"{parent_dir}/crops_100K"
+    train_set, test_set = load_data(parent_dir)
 
+    train_set, test_set, val_set = split_data(
+        train_set, test_set, runner=runner)
 
-    ##### TEST #####
-    test_df = Test.main(df_test, image_dir, model, device)
+    print(f"Train set: {len(train_set)}")
+    print(f"Validation set: {len(val_set)}")
+    print(f"Test set: {len(test_set)}")
 
-    #File for submission
-    #test_df.to_csv(name_file, header=None, index=None)
+    if torch.cuda.is_available():
+        print("\nCuda available")
+        device = torch.device("cuda:0")
+        torch.backends.cudnn.benchmark = True
+    else:
+        device = "mps"
+
+    if modelname == "MRCNN":
+        model = MRCNN()
+    else:
+        model = MTCNN()
+
+    # Training
+    learning_rate = 0.0001
+    num_epochs = 25
+    batch_size = 16
+    metric_train = train_model(
+        train_set,
+        val_set,
+        image_dir,
+        model,
+        device,
+        learning_rate=learning_rate,
+        num_epochs=num_epochs,
+        batch_size=batch_size,
+    )
+
+    # Log Train results
+    print(f"Metric fn : {metric_train}")
+
+    # Testing
+    results_df = test_model(test_set, image_dir, model, device)
+
+    if submission_ready:
+        results_df.to_csv("results.csv", header=None, index=None)
+
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:  # Checks if at least one argument is provided
-        main(sys.argv[1])  # Passes the first argument to the main function
-    else:
-        print("File name not provided.")
-        main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-pdd",
+        "--parent_dir",
+        help="Path to the folder data/ holding crops_100K or liste_training",
+        default="./data",
+    )
+    parser.add_argument(
+        "-r",
+        "--runner",
+        help="Train on the real data split",
+        default="False",
+    )
+    parser.add_argument(
+        "-s", "--submission_ready", help="Dump results to csv in main directory", default="False"
+    )
+
+    parser.add_argument(
+        "-m",
+        "--modelname",
+        help="Model to use for training",
+        default="MTCNN",
+    )
+    args = parser.parse_args()
+    main(args.parent_dir, args.runner, args.submission_ready, args.modelname)

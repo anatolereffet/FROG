@@ -2,11 +2,7 @@ import torch
 import pandas as pd
 import numpy as np
 from PIL import Image
-
-# from torchvision.transforms import v2
 from typing import Optional
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -34,7 +30,6 @@ class Dataset(torch.utils.data.Dataset):
         # Load data and get label
         img = Image.open(f"{self.image_dir}/{filename}")
 
-        # X = self.transform(img)
         aug = self.transforms(image=np.array(img))
         X = aug["image"]
 

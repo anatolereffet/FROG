@@ -7,15 +7,21 @@ from torch.utils.data import DataLoader, ConcatDataset
 from torch.nn import MSELoss
 from utils.dataset import Dataset
 from utils.metrics import metric_fn
-from utils.transform_loader import basic_transform, horizontal_transform, rotation_transform
+from utils.transform_loader import (
+    basic_transform,
+    horizontal_transform,
+    rotation_transform,
+    scaling_transform,
+)
 
 
 def train(train_set, val_set, image_dir, model, device, **params):
     train_set_bas = Dataset(train_set, image_dir, transforms=basic_transform)
     train_set_hor = Dataset(train_set, image_dir, transforms=horizontal_transform)
     train_set_rot = Dataset(train_set, image_dir, transforms=rotation_transform)
+    train_set_sca = Dataset(train_set, image_dir, transforms=scaling_transform)
 
-    train_enhanced = ConcatDataset([train_set_bas, train_set_hor, train_set_rot])
+    train_enhanced = ConcatDataset([train_set_bas, train_set_hor, train_set_rot, train_set_sca])
 
     val_set = Dataset(val_set, image_dir, transforms=basic_transform, mode="val")
 
@@ -149,6 +155,10 @@ def train(train_set, val_set, image_dir, model, device, **params):
                 glob_metric, metric_male, metric_female = metric_fn(
                     results_male, results_female, detail=True
                 )
+                # torch.save(
+                #    model.state_dict(),
+                #    f"./src/model_path/Model25/epoch{n+1}.pth",
+                # )
                 # Save every epoch
                 """if glob_metric < best_val_metric:
                     best_val_metric = glob_metric

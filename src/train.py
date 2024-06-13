@@ -3,18 +3,23 @@ import mlflow.pytorch
 import torch
 import pandas as pd
 from tqdm import tqdm
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset
 from torch.nn import MSELoss
 from utils.dataset import Dataset
 from utils.metrics import metric_fn
+from utils.transform_loader import basic_transform, horizontal_transform, rotation_transform
 
 
 def train(train_set, val_set, image_dir, model, device, **params):
-    train_set = Dataset(train_set, image_dir, mode="train")
-    val_set = Dataset(val_set, image_dir, mode="val")
+    train_set_bas = Dataset(train_set, image_dir, transforms=basic_transform)
+    train_set_hor = Dataset(train_set, image_dir, transforms=horizontal_transform)
+    train_set_rot = Dataset(train_set, image_dir, transforms=rotation_transform)
 
-    default_params = {"learning_rate": 0.001,
-                      "num_epochs": 10, "batch_size": 5}
+    train_enhanced = ConcatDataset([train_set_bas, train_set_hor, train_set_rot])
+
+    val_set = Dataset(val_set, image_dir, transforms=basic_transform, mode="val")
+
+    default_params = {"learning_rate": 0.001, "num_epochs": 10, "batch_size": 5}
     params_train = {**default_params, **params}
 
     params_trainloader = {
@@ -29,7 +34,7 @@ def train(train_set, val_set, image_dir, model, device, **params):
         "num_workers": 0,
     }
 
-    training_generator = DataLoader(train_set, **params_trainloader)
+    training_generator = DataLoader(train_enhanced, **params_trainloader)
     validation_generator = DataLoader(val_set, **params_valloader)
 
     ###################   MODEL   #################
@@ -57,12 +62,14 @@ def train(train_set, val_set, image_dir, model, device, **params):
         mlflow.log_param("num_epochs", num_epochs)
         best_val_metric = 5
         for n in range(num_epochs):
-            print(f"Epoch {n}")
+            print(f"Epoch {n+1}")
             model.train()
             results_list = []
             train_loss = 0.0
             val_loss = 0.0
-            for batch_idx, (X, y, gender, filename) in tqdm(enumerate(training_generator), total=len(training_generator)):
+            for batch_idx, (X, y, gender, filename) in tqdm(
+                enumerate(training_generator), total=len(training_generator)
+            ):
                 X, y = X.to(device), y.to(device)
                 y = torch.reshape(y, (len(y), 1))
                 y_pred = model(X)
@@ -89,8 +96,7 @@ def train(train_set, val_set, image_dir, model, device, **params):
                 loss.backward()
                 optimizer.step()
 
-            mlflow.log_metric(
-                "train_loss", train_loss/len(training_generator), step=n+1)
+            mlflow.log_metric("train_loss", train_loss / len(training_generator), step=n + 1)
 
             results_df = pd.DataFrame(results_list)
             results_male = results_df.loc[results_df["gender"] > 0.5]
@@ -101,19 +107,20 @@ def train(train_set, val_set, image_dir, model, device, **params):
 
             mlflow.log_metric("train_metric_fn", glob_metric, step=n + 1)
             mlflow.log_metric("train_metric_fn_male", metric_male, step=n + 1)
-            mlflow.log_metric("train_metric_fn_female",
-                              metric_female, step=n + 1)
+            mlflow.log_metric("train_metric_fn_female", metric_female, step=n + 1)
 
             model.eval()
             with torch.no_grad():
                 results_list = []
-                for batch_idx, (X, y, gender, filename) in tqdm(enumerate(validation_generator), total=len(validation_generator)):
+                for batch_idx, (X, y, gender, filename) in tqdm(
+                    enumerate(validation_generator), total=len(validation_generator)
+                ):
                     X, y = X.to(device), y.to(device)
                     y = torch.reshape(y, (len(y), 1))
                     y_pred = model(X)
                     vloss = loss_fn(y_pred, y)
 
-                    if val_loss.isnan():
+                    if vloss.isnan():
                         print(filename)
                         print("label", y)
                         print("y_pred", y_pred)
@@ -142,16 +149,17 @@ def train(train_set, val_set, image_dir, model, device, **params):
                 glob_metric, metric_male, metric_female = metric_fn(
                     results_male, results_female, detail=True
                 )
-                if glob_metric < best_val_metric:
+                # Save every epoch
+                """if glob_metric < best_val_metric:
                     best_val_metric = glob_metric
-                    torch.save(model.state_dict(),
-                               f"./src/model_path/model50ep/epoch{n+1}.pth")
+                    torch.save(
+                        model.state_dict(),
+                        f"./src/model_path/modelNuit25/epoch{n+1}.pth",
+                    )"""
 
                 mlflow.log_metric("val_metric_fn", glob_metric, step=n + 1)
-                mlflow.log_metric("val_metric_fn_male",
-                                  metric_male, step=n + 1)
-                mlflow.log_metric("val_metric_fn_female",
-                                  metric_female, step=n + 1)
+                mlflow.log_metric("val_metric_fn_male", metric_male, step=n + 1)
+                mlflow.log_metric("val_metric_fn_female", metric_female, step=n + 1)
 
         # Log the model
         mlflow.pytorch.log_model(model, "model")

@@ -12,31 +12,14 @@ from albumentations.pytorch import ToTensorV2
 class Dataset(torch.utils.data.Dataset):
     "Characterizes a dataset for PyTorch"
 
-    def __init__(self, df, image_dir, mode="train"):
+    def __init__(self, df, image_dir, transforms, mode="train"):
         "Initialization"
         self.image_dir = image_dir
         self.df = df
         self.df = self.df.dropna()
         self.df = self.df.reset_index(drop=True)
+        self.transforms = transforms
         self.mode = mode
-        if mode == "train":
-            self.transform = A.Compose(
-                [
-                    A.HorizontalFlip(p=0.5),
-                    A.VerticalFlip(p=0.5),
-                    A.Rotate(limit=15, p=0.5),
-                    A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-                    ToTensorV2(),
-                ]
-            )
-        else:
-            self.transform = A.Compose(
-                [
-                    A.Resize(height=224, width=224),
-                    A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-                    ToTensorV2(),
-                ]
-            )
 
     def __len__(self):
         "Denotes the total number of samples"
@@ -52,7 +35,7 @@ class Dataset(torch.utils.data.Dataset):
         img = Image.open(f"{self.image_dir}/{filename}")
 
         # X = self.transform(img)
-        aug = self.transform(image=np.array(img))
+        aug = self.transforms(image=np.array(img))
         X = aug["image"]
 
         if self.mode in ("train", "val"):

@@ -155,10 +155,10 @@ def train(train_set, val_set, image_dir, model, device, **params):
                 glob_metric, metric_male, metric_female = metric_fn(
                     results_male, results_female, detail=True
                 )
-                # torch.save(
-                #    model.state_dict(),
-                #    f"./src/model_path/Model25/epoch{n+1}.pth",
-                # )
+                torch.save(
+                    model.state_dict(),
+                    f"./src/model_path/model50/epoch{n+1}.pth",
+                )
                 # Save every epoch
                 """if glob_metric < best_val_metric:
                     best_val_metric = glob_metric
@@ -166,6 +166,9 @@ def train(train_set, val_set, image_dir, model, device, **params):
                         model.state_dict(),
                         f"./src/model_path/modelNuit25/epoch{n+1}.pth",
                     )"""
+                if n == (num_epochs - 1):
+                    # save last optim state
+                    torch.save(optimizer.state_dict(), f"./src/model_path/model50/Optim{n+1}.pth")
 
                 mlflow.log_metric("val_metric_fn", glob_metric, step=n + 1)
                 mlflow.log_metric("val_metric_fn_male", metric_male, step=n + 1)

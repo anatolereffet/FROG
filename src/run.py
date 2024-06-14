@@ -3,7 +3,7 @@ import torch
 
 from models.MTCNN import MTCNN
 from models.MRCNN import MRCNN
-from models.RESNET import RESNET
+from models.RESNET import setup_resnet18
 
 from utils.dataset import load_data, split_data
 from train_resnet import train as train_model
@@ -14,8 +14,7 @@ def main(parent_dir, runner, submission_ready, modelname):
     image_dir = f"{parent_dir}/crops_100K"
     train_set, test_set = load_data(parent_dir)
 
-    train_set, test_set, val_set = split_data(
-        train_set, test_set, runner=runner)
+    train_set, test_set, val_set = split_data(train_set, test_set, runner=runner)
 
     print(f"Train set: {len(train_set)}")
     print(f"Validation set: {len(val_set)}")
@@ -30,23 +29,21 @@ def main(parent_dir, runner, submission_ready, modelname):
 
     if modelname == "MRCNN":
         model = MRCNN()
-
-    if modelname == "ResNet":
-        model = RESNET()
-
+    elif modelname == "ResNet":
+        model = setup_resnet18(device)
     else:
         model = MTCNN()
 
     # Training
-    learning_rate = 0.00005
-    num_epochs = 30
+    learning_rate = 0.00001
+    num_epochs = 100
     batch_size = 32
     metric_train = train_model(
         train_set,
         val_set,
         image_dir,
-        model,
         device,
+        model,
         learning_rate=learning_rate,
         num_epochs=num_epochs,
         batch_size=batch_size,

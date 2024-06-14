@@ -7,24 +7,25 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader, ConcatDataset
 from utils.dataset import Dataset
 from utils.metrics import metric_fn
-from utils.transform_loader import basic_transform, horizontal_transform, rotation_transform
+from utils.transform_loader import (
+    basic_transform,
+    horizontal_transform,
+    rotation_transform,
+    scaling_transform,
+)
 
 
 def train(train_set, val_set, image_dir, device, model, **params):
     train_set_bas = Dataset(train_set, image_dir, transforms=basic_transform)
-    train_set_hor = Dataset(train_set, image_dir,
-                            transforms=horizontal_transform)
-    train_set_rot = Dataset(train_set, image_dir,
-                            transforms=rotation_transform)
+    train_set_hor = Dataset(train_set, image_dir, transforms=horizontal_transform)
+    train_set_rot = Dataset(train_set, image_dir, transforms=rotation_transform)
+    train_set_sca = Dataset(train_set, image_dir, transforms=scaling_transform)
 
-    train_enhanced = ConcatDataset(
-        [train_set_bas, train_set_hor, train_set_rot])
+    train_enhanced = ConcatDataset([train_set_bas, train_set_hor, train_set_rot, train_set_sca])
 
-    val_set = Dataset(val_set, image_dir,
-                      transforms=basic_transform, mode="val")
+    val_set = Dataset(val_set, image_dir, transforms=basic_transform, mode="val")
 
-    default_params = {"learning_rate": 0.001,
-                      "num_epochs": 10, "batch_size": 5}
+    default_params = {"learning_rate": 0.001, "num_epochs": 10, "batch_size": 5}
     params_train = {**default_params, **params}
 
     params_trainloader = {
@@ -67,9 +68,9 @@ def train(train_set, val_set, image_dir, device, model, **params):
             val_loss = 0.0
             print(f"Epoch {n+1}")
 
-            for phase in ['train', 'val']:
+            for phase in ["train", "val"]:
                 results_list = []
-                if phase == 'train':
+                if phase == "train":
                     model.train()
                     image_datasets = training_generator
                 else:
@@ -87,7 +88,7 @@ def train(train_set, val_set, image_dir, device, model, **params):
 
                     optimizer.zero_grad()
 
-                    with torch.set_grad_enabled(phase == 'train'):
+                    with torch.set_grad_enabled(phase == "train"):
                         outputs = model(inputs)
                         loss = criterion(outputs, labels)
                         for i in range(len(inputs)):
@@ -99,7 +100,7 @@ def train(train_set, val_set, image_dir, device, model, **params):
                                 }
                             )
 
-                        if phase == 'train':
+                        if phase == "train":
                             loss.backward()
                             optimizer.step()
 
@@ -107,7 +108,7 @@ def train(train_set, val_set, image_dir, device, model, **params):
 
                 epoch_loss = running_loss / len(image_datasets)
 
-                if phase == 'train':
+                if phase == "train":
                     train_loss = epoch_loss
 
                 else:
@@ -119,12 +120,17 @@ def train(train_set, val_set, image_dir, device, model, **params):
                 glob_metric, metric_male, metric_female = metric_fn(
                     results_male, results_female, detail=True
                 )
-                mlflow.log_metric(f"{phase}_metric_fn",
-                                  glob_metric, step=n + 1)
-                mlflow.log_metric(f"{phase}_metric_fn_male",
-                                  metric_male, step=n + 1)
-                mlflow.log_metric(f"{phase}_metric_fn_female",
-                                  metric_female, step=n + 1)
+                mlflow.log_metric(f"{phase}_metric_fn", glob_metric, step=n + 1)
+                mlflow.log_metric(f"{phase}_metric_fn_male", metric_male, step=n + 1)
+                mlflow.log_metric(f"{phase}_metric_fn_female", metric_female, step=n + 1)
+
+            torch.save(
+                model.state_dict(),
+                f"./src/model_path/dump_resnet/epoch{n+1}.pth",
+            )
+            if n == (num_epochs - 1):
+                # save last optim state
+                torch.save(optimizer.state_dict(), f"./src/model_path/dump_resnet/Optim{n+1}.pth")
 
             # Log the losses
             mlflow.log_metric("train_loss", train_loss, step=n)
